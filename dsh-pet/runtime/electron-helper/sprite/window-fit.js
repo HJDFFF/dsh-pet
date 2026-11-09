@@ -2,10 +2,15 @@
  * 窗口落位与上报：把「本体屏幕位置」换算成窗口矩形，把窗口管理器钳掉的那截转成本体偏移，再报给主进程。
  *
  * 四边都钳：贴顶时窗口停在 y=0，本体在窗口内下移，窗口上方那截余量正好留给气泡。
+ * 连续位移期间顺带撤掉视频的 alpha 滤镜（见 index.html 的 `.is-moving`）：它按整窗尺寸逐帧栅格化，
+ * 是桌面端渲染帧率的主瓶颈；静止后恢复，背景仍保持干净。
  * PetSprite 由 sprite.js 定义，本文件只往原型上挂方法，必须在其后加载。
  * @module dsh-pet/runtime/electron-helper/sprite-window-fit
  */
 'use strict';
+
+/** 位移结束判定（ms）：最后一次上报后静默这么久，恢复视频滤镜。 */
+const MOVE_FILTER_IDLE_MS = 200;
 
 Object.assign(PetSprite.prototype, {
   /**
@@ -61,6 +66,34 @@ Object.assign(PetSprite.prototype, {
     this.el.style.left = x + 'px';
     this.el.style.top = y + 'px';
     window.__dshPetDebug.winOffset = { x, y };
+  },
+
+  /** 位移标记：连续两次上报间隔小于 {@link MOVE_FILTER_IDLE_MS} 才算「正在移动」。 */
+  markMoving() {
+    const now = performance.now();
+    if (now - this.lastMoveAt < MOVE_FILTER_IDLE_MS) this.setMoving(true);
+    this.lastMoveAt = now;
+    if (this.moveFilterTimer === null) {
+      this.moveFilterTimer = window.setTimeout(() => this.settleMoving(), MOVE_FILTER_IDLE_MS);
+    }
+  },
+
+  /** 静默到点：还在动就续一拍，真的停了就恢复滤镜。 */
+  settleMoving() {
+    this.moveFilterTimer = null;
+    if (performance.now() - this.lastMoveAt < MOVE_FILTER_IDLE_MS) {
+      this.moveFilterTimer = window.setTimeout(() => this.settleMoving(), MOVE_FILTER_IDLE_MS);
+      return;
+    }
+    this.lastMoveAt = 0;
+    this.setMoving(false);
+  },
+
+  /** 切「位移中」态：撤掉或恢复视频滤镜（样式见 index.html 的 `.is-moving`）。 */
+  setMoving(moving) {
+    if (this.moving === moving) return;
+    this.moving = moving;
+    this.el.classList.toggle('is-moving', moving);
   },
 
   /**

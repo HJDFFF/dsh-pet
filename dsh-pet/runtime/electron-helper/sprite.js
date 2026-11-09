@@ -108,6 +108,8 @@ class PetSprite {
     if (this.bubbleTimer !== null) window.clearTimeout(this.bubbleTimer);
     if (this.whisperTimer !== null) window.clearTimeout(this.whisperTimer);
     if (this.workTimer !== null) window.clearTimeout(this.workTimer);
+    if (this.moveFilterTimer !== null) window.clearTimeout(this.moveFilterTimer);
+    this.moveFilterTimer = null;
     if (this.chatMount) {
       this.chatMount.close();
       this.chatMount = null;
@@ -172,6 +174,8 @@ class PetSprite {
     if (this.tipOn) this.renderTip();
     // 实况标脏（节流上报，见 markPoseDirty）：所有位移都收口在本函数，所以这里一处就够
     this.markPoseDirty();
+    // 位移中撤滤镜（见 window-fit.js 的 markMoving）：逐帧调用，不能在这里开定时器。
+    this.markMoving();
   }
 
   // 角落/边距 → 本体位置；拖拽后按会话内位置（比例）还原。

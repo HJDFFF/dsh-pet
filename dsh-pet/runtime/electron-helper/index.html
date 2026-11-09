@@ -57,6 +57,11 @@
       video.pet-video.is-front {
         opacity: 1;
       }
+      /* 位移期间撤掉 alpha 修正滤镜：SVG 滤镜每帧按整窗尺寸重新栅格化，800px 宠物上实测把 rAF
+         压到 ~50fps、窗口每秒只能移动 20 多次；运动中的 1/255 底色肉眼不可见，停稳 200ms 后恢复。 */
+      .pet-sprite.is-moving video.pet-video {
+        filter: none;
+      }
       .pet-hit {
         position: absolute;
         pointer-events: auto;

@@ -56,6 +56,11 @@ Object.assign(PetSprite.prototype, {
     this.moveRef = null;
     this.moveToken = 0;
     this.pendingMove = null;
+    // 位移中撤掉视频滤镜（见 window-fit.js 的 markMoving）：moving = 当前是否已撤，
+    // lastMoveAt = 最后一次位移上报时刻，moveFilterTimer = 静默恢复的延时句柄。
+    this.moving = false;
+    this.lastMoveAt = 0;
+    this.moveFilterTimer = null;
     this.customPos = null; // 拖拽后的会话内位置（{rx, ry} 比例）；restart 回角落
   },
 
