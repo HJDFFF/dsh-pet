@@ -59,6 +59,15 @@ let PANELS = [];
 /** 主屏工作区（视口相对坐标）：角落定位与「回到初始位置」用它——外接矩形的角落可能落在空洞里 */
 let PRIMARY_AREA = null;
 
+/** 横轴活动范围（屏幕 CSS 坐标，与 position.marginX 同口径；null = 不限制）：配置根字段 roamRangeX。
+ *  首帧几何走 URL query 时还没拿到配置，所以不在这里挂载——由 renderer 拿到 /config 后经
+ *  applyRoamRange() 注入并重挂一次几何。 */
+let ROAM_X = null;
+/** 主屏在**原始** AREAS 里的下标：裁剪会整块丢弃区间外的屏，PRIMARY_AREA 必须按这个名字重新映射。 */
+let PRIMARY_INDEX = 0;
+/** 最近一次挂载的几何：applyRoamRange 要用它重挂（来源可能是 URL query，也可能是 pet:displays 推送）。 */
+let LAST_GEO = null;
+
 /** 把主进程下发的桌面几何（{hull, areas, panels, primaryIndex}，屏幕坐标）挂到 VIEW / AREAS / PANELS。 */
 function applyDeskGeometry(geo) {
   const hull = geo && geo.hull;
@@ -97,8 +106,58 @@ function applyDeskGeometry(geo) {
     -VIEW.y,
   );
   const pi = Number(geo.primaryIndex);
-  PRIMARY_AREA = AREAS[Number.isInteger(pi) && pi >= 0 && pi < AREAS.length ? pi : 0];
+  PRIMARY_INDEX = Number.isInteger(pi) && pi >= 0 && pi < AREAS.length ? pi : 0;
+  PRIMARY_AREA = AREAS[PRIMARY_INDEX];
+  LAST_GEO = geo;
+  // 横轴活动范围：裁完再交给消费端，抛掷边界 / 漫游落点 / 位置指令 / 角落定位自动收口到区间内
+  clipAreasToRoamX();
   return true;
+}
+
+/** 横轴区间（视口相对 CSS 坐标；null = 不限制）。几何裁剪与拖拽跟随共用同一份换算。 */
+function roamLimitsX() {
+  return ROAM_X ? { min: ROAM_X.min - VIEW.x, max: ROAM_X.max - VIEW.x } : null;
+}
+
+/**
+ * 把 AREAS / PANELS 裁到横轴活动范围。必须换新数组：throwSpaceOf 靠数组身份变化重建抛掷空间
+ * （原地改内容会让空中飞行的宠物继续用旧边界）。
+ *
+ * 整块落在区间外的屏连同 PANELS 同下标一起丢弃，两者保持同序等长——throwSpace 会校验长度，
+ * 不同步就退回「用工作区当面板」，任务栏条带处的屏缝探测随之失效。WORK_AREAS 刻意不裁：
+ * 菜单与气泡仍按整块屏摆放，裁了会被挤到区间边缘跟宠物抢位置。
+ * 区间把所有屏都排除时放弃裁剪：宁可越界，也不能让宠物隐身。
+ */
+function clipAreasToRoamX() {
+  const limits = roamLimitsX();
+  if (!limits || AREAS.length === 0) return;
+  const clipped = S.clipRectsToX(AREAS, limits.min, limits.max);
+  if (clipped.rects.length === 0) return;
+  PANELS = clipped.keep.map(
+    (src, i) => S.clipRectToX(PANELS[src] || AREAS[src], limits.min, limits.max) || clipped.rects[i],
+  );
+  AREAS = clipped.rects;
+  const pos = clipped.keep.indexOf(PRIMARY_INDEX);
+  PRIMARY_AREA = AREAS[pos >= 0 ? pos : 0];
+}
+
+/**
+ * 应用配置里的横轴活动范围（屏幕 CSS 坐标）：null / 非法 = 不限制。
+ *
+ * 只在拿到 /config 后调一次——那时 sprite 还没建，不必 relayout。显示器拓扑之后每次变化都会
+ * 重新走 applyDeskGeometry，它带着这份 ROAM_X 重新裁剪，所以配置只需要注入一次。
+ */
+function applyRoamRange(range) {
+  const min = range && typeof range === 'object' ? Number(range.min) : NaN;
+  const max = range && typeof range === 'object' ? Number(range.max) : NaN;
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min >= max) {
+    if (range !== null && range !== undefined) {
+      console.warn('[dsh-pet-desktop-helper] roamRangeX 非法，已忽略：' + JSON.stringify(range));
+    }
+    return;
+  }
+  ROAM_X = { min, max };
+  if (LAST_GEO) applyDeskGeometry(LAST_GEO);
 }
 
 // 首帧几何走 URL query（position() 定角落时就要用），运行期变化再经 pet:displays 推送。

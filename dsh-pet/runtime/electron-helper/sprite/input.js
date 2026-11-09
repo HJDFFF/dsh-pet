@@ -127,6 +127,15 @@ Object.assign(PetSprite.prototype, {
     this.dragTrail = S.trimTrail(this.dragTrail, now);
     // 弹簧目标 = 按下时的宠物位置 + 指针屏幕增量（窗口怎么动都不影响坐标），由 rAF 逐帧追赶
     this.dragTarget = { x: d.petX + dx, y: d.petY + dy };
+    // 横轴活动范围：拖拽也夹在区间内，别等松手才被抛掷边界弹回来。区间限制的是**身体**左右缘，
+    // 所以盒左缘的可达范围要按 sideAllow 内缩——与 throwBoundsIn 的口径逐像素一致。
+    // 区间比宠物还窄时（maxLeft < minLeft）不夹：两侧都满足不了，交给抛掷边界裁决。
+    const rx = roamLimitsX();
+    if (rx) {
+      const minLeft = rx.min - this.sideAllow;
+      const maxLeft = rx.max - this.size + this.sideAllow;
+      if (maxLeft >= minLeft) this.dragTarget.x = Math.min(Math.max(this.dragTarget.x, minLeft), maxLeft);
+    }
     this.startDragFollow();
   },
 

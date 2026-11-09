@@ -18,6 +18,8 @@ import assert from 'node:assert/strict';
 import {
   boundingRect,
   clampPointToRegion,
+  clipRectToX,
+  clipRectsToX,
   indexAtPoint,
   nearestIndex,
   rebaseCenter,
@@ -496,5 +498,52 @@ describe('rebaseCenter —— 显示器拓扑变化后保持世界坐标（#193�
     // 主屏中心在旧视口里的相对坐标 x=3316，远超新视口宽度 1512 —— 这就是误判的来源
     const stale = clampPointToRegion(AREAS_B, 3316, 491);
     assert.equal(stale.x, BUILTIN.width - 1, '旧实现必然把仍在屏内的宠物夹到右缘');
+  });
+});
+
+// 横轴活动范围（配置根字段 roamRangeX）：桌面端不改物理、不改漫游规划，只把 AREAS / PANELS
+// 先裁到区间再交出去——那两处本来都按屏矩形裁决。所以这里钉两件事：
+//   1) 裁剪本身的边界行为（含负坐标屏、整块丢弃、keep 下标对应）；
+//   2) 裁完的几何确实让抛掷在区间边界反弹，而不是继续跨屏飞。
+describe('clipRectsToX —— 横轴活动范围裁剪', () => {
+  test('区间完全覆盖：原样返回（负坐标屏也一样）', () => {
+    const rect: Rect = { x: -1230, y: -876, width: 1230, height: 876 };
+    assert.deepEqual(clipRectToX(rect, -2000, 0), rect);
+  });
+
+  test('跨区间边界：只夹 x，y 与高度不动', () => {
+    const rect: Rect = { x: 0, y: 24, width: 2560, height: 1392 };
+    assert.deepEqual(clipRectToX(rect, 100, 2000), { x: 100, y: 24, width: 1900, height: 1392 });
+  });
+
+  test('整块在区间外：返回 null（零宽矩形会让 throwBoundsIn 造出 minX > maxX 的边界）', () => {
+    assert.equal(clipRectToX({ x: 3000, y: 0, width: 100, height: 100 }, 0, 2000), null);
+    // 右缘刚好落在 minX 上：区间右开，同样算在外
+    assert.equal(clipRectToX({ x: 0, y: 0, width: 100, height: 100 }, 100, 2000), null);
+  });
+
+  test('多屏：keep 保留原下标，调用方才能同步过滤面板与主屏映射', () => {
+    // 区间落在副屏内部：主屏（0..2560）整块在外，只留副屏（2560..3795）→ keep 必须是原下标 1
+    const out = clipRectsToX(AREAS, 3000, 3795);
+    assert.deepEqual(out.keep, [1], '只有副屏与区间相交');
+    assert.deepEqual(out.rects, [{ x: 3000, y: -532, width: 795, height: 2147 }]);
+  });
+
+  test('屏被整块裁掉后：裁剩的屏数变少，边界只按保留下来的屏算', () => {
+    const out = clipRectsToX(AREAS, 0, 2000);
+    assert.deepEqual(out.keep, [0], '副屏整个在区间右侧');
+    assert.equal(out.rects.length, 1);
+    assert.deepEqual(out.rects[0], { x: 0, y: 0, width: 2000, height: 1392 });
+  });
+
+  test('裁完的几何：全力向右甩，在区间右缘反弹，不飞到区间外', () => {
+    const clipped = clipRectsToX([MAIN], 0, 1600);
+    const space = throwSpace({ areas: clipped.rects, size: SIZE, sideAllow: SIDE_ALLOW });
+    const end = settle({ x: 800, y: 300, vx: 4000, vy: 0 }, DEFAULT_PHYSICS, 4000, space);
+    assert.ok(end.x <= space.bounds[0].maxX + 1e-6, `不得越出区间：x=${end.x}`);
+    assert.ok(end.x >= space.bounds[0].minX - 1e-6);
+    assert.equal(end.screen, 0, '区间只含一块屏，全程归属该屏');
+    // 区间限制的是身体右缘：包围盒右缘 = 身体右缘 + sideAllow，所以盒子停在 1600 − size + sideAllow
+    assert.equal(space.bounds[0].maxX, 1600 - SIZE + SIDE_ALLOW);
   });
 });

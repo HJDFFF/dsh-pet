@@ -75,6 +75,8 @@ const scriptGlobals = {
   PANELS: 'readonly',
   PRIMARY_AREA: 'readonly',
   applyDeskGeometry: 'readonly',
+  applyRoamRange: 'readonly',
+  roamLimitsX: 'readonly',
   BASE: 'readonly',
   ORIGIN: 'readonly',
   STATE_URL: 'readonly',

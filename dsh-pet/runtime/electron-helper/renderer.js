@@ -40,6 +40,8 @@ async function loadConfig() {
   const merged = await res.json();
   // 接口统一 200 + 实体：失败时状态码仍是 200，得看体里的 ok。
   if (merged && merged.ok === false) throw new Error('config ' + String(merged.reason ?? 'failed'));
+  // 横轴活动范围（仅桌面）：此刻 sprite 还没建，裁好的 AREAS/PANELS 会被随后的构造直接读到。
+  applyRoamRange(merged && merged.main ? merged.main.roamRangeX : null);
   return {
     pets: S.flattenConfigPets(merged),
     // 拖拽抛掷物理参数（顶层全局，所有宠物共用；合并器已填内置默认）

@@ -160,6 +160,13 @@ export interface ModelSelection {
   model: string;
 }
 
+/** config.jsonc 的 roamRangeX 段：横轴活动区间（屏幕 CSS 像素，min 必须小于 max）。
+ *  只约束横向；纵向仍按各屏工作区的上下边界裁决。 */
+export interface RoamRangeX {
+  min: number;
+  max: number;
+}
+
 /** config.jsonc 的 physics 段：拖拽抛掷手感参数（全局，所有宠物共用）。
  *  默认值见 {@link DEFAULT_PHYSICS}，内置配置与代码两侧保持一致。 */
 export interface PhysicsParams {
@@ -225,6 +232,11 @@ export interface ClientConfig {
    *  自主漫游也只在屏内走；false = 跨屏飞行与跨屏行走。根字段，不属于 physics——它不改手感，只改「被允许去哪」。
    *  条目级，必填，缺失即配置错误。 */
   confineToScreen: boolean;
+  /** 横轴活动范围（根字段，仅桌面模式）：null / 缺失 = 不限制；{ min, max } = 身体左右缘可达的
+   *  屏幕 CSS 像素区间（口径同 pets[].position.marginX）。桌面 Helper 拿到 /config 后按它裁掉各屏
+   *  区间外的部分，抛掷反弹、漫游落点、拖拽跟随与角落定位随之收口；浏览器 overlay 只有一块视口，不读。
+   *  与 confineToScreen 正交（整块屏 vs 一条横轴区间）。只读 main 条目这一份。 */
+  roamRangeX?: RoamRangeX | null;
   pets: Pet[];
   animations: Animations;
   animationWeights: Weights;

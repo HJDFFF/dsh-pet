@@ -148,6 +148,18 @@ export function modelSelectionValid(value: unknown): boolean {
   return (m.provider.trim() === '') === (m.model.trim() === '');
 }
 
+/** roamRangeX 段校验：null（不限制）或 { min, max }。
+ *  数字用 Number() 归一（与 petNumber / physics 同口径，手写的 "0" 也认），但必须是有限值且 min < max：
+ *  顺序反了按非法处理，否则运行时把区间裁成空集、宠物直接隐身。 */
+function roamRangeXValid(value: unknown): boolean {
+  if (value === null) return true;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const r = value as Record<string, unknown>;
+  const min = Number(r.min);
+  const max = Number(r.max);
+  return Number.isFinite(min) && Number.isFinite(max) && min < max;
+}
+
 /** workStatusTexts 段校验：二维数组——外层每项都是非空字符串数组（档位文案，每档可多句随机）；空数组不可用 */
 function workStatusTextsValid(value: unknown): boolean {
   if (!Array.isArray(value) || value.length === 0) return false;
@@ -205,6 +217,10 @@ export function topFieldValid(key: string, value: unknown): boolean {
       return typeof value === 'boolean';
     case 'confineToScreen':
       return typeof value === 'boolean';
+    case 'roamRangeX':
+      // 横轴活动范围（根字段，仅桌面模式）：null = 不限制，或 { min, max } 两个有限数字且 min < max。
+      // 缺半边 / 顺序反了都算非法——运行时只认完整区间，不做「取其中一个」的兜底。
+      return roamRangeXValid(value);
     case 'trayEnabled':
       // 桌面模式系统托盘开关（main 条目顶层；helper 读它决定建不建托盘图标）
       return typeof value === 'boolean';

@@ -79,6 +79,34 @@ export const clampPointInRect = (r: Rect, x: number, y: number): { x: number; y:
   y: Math.min(Math.max(y, r.y), rectBottom(r) - 1),
 });
 
+/** 把矩形裁进横轴区间 [minX, maxX]：返回裁剪后的新矩形，整块落在区间外返回 null。
+ *  宽度不足 1px 视为「整块在外」——零宽矩形会让 throwBoundsIn 造出 minX > maxX 的边界。 */
+export const clipRectToX = (r: Rect, minX: number, maxX: number): Rect | null => {
+  const x0 = Math.max(r.x, minX);
+  const x1 = Math.min(rectRight(r), maxX);
+  return x1 - x0 < 1 ? null : { x: x0, y: r.y, width: x1 - x0, height: r.height };
+};
+
+/**
+ * 按横轴区间裁剪一组同序矩形（多屏工作区、完整面板各调一次）。
+ *
+ * keep 是保留下来的原下标：调用方要用它同步过滤与之同序的数组（面板、主屏下标），
+ * 否则屏与屏的对应关系会错位，屏缝探测与主屏映射都会指错对象。
+ * 用于「横轴活动范围」（roamRangeX）：先裁几何再交给抛掷与漫游，边界自然落在配置的区间上，
+ * 不必在物理积分与移动规划里各加一套范围判断——那两处已经按屏矩形裁决了。
+ */
+export const clipRectsToX = (rects: Rect[], minX: number, maxX: number): { rects: Rect[]; keep: number[] } => {
+  const out: Rect[] = [];
+  const keep: number[] = [];
+  for (let i = 0; i < rects.length; i++) {
+    const clipped = clipRectToX(rects[i], minX, maxX);
+    if (!clipped) continue;
+    out.push(clipped);
+    keep.push(i);
+  }
+  return { rects: out, keep };
+};
+
 /** 把点夹进并集：已在并集内原样返回，否则夹进最近的那块屏。用于显示器拔插后把落在空洞里的宠物拉回可见区。 */
 export const clampPointToRegion = (rects: Rect[], x: number, y: number): { x: number; y: number } => {
   if (rectAtPoint(rects, x, y)) return { x, y };

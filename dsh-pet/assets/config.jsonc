@@ -11,7 +11,7 @@
 //     chatMemoryRounds / whisperModel / chatModel / eventsRefreshSec
 //   · 条目级（每个条目一份：main 一份、每个种类各一份；种类文件顶层可覆盖）：
 //     whisperPrompt / memes / workStatusTexts / animations / animationWeights
-//   · 只读 main（写了也只认 main 条目那份）：notificationsEnabled / eventsRefreshSec.balance
+//   · 只读 main（写了也只认 main 条目那份）：notificationsEnabled / eventsRefreshSec.balance / roamRangeX
 // 合并口径：所有顶层字段都是**整段替换**——写了就整段用自己的，缺的子键不会从本文件补回来
 //   （消费端各自兜底：余额周期读不到按 1800、碎碎念按 300）。
 {
@@ -158,6 +158,16 @@
   // 全局默认：用户层写一次对**所有宠物**生效（含种类）；种类文件 pet/<名>-config.json 顶层写了则用自己那份。
   // 仅影响桌面模式（浏览器 overlay 本来就只在视口内活动）。改动后刷新或重启生效。
   "confineToScreen": false,
+  // ===================== 横轴活动范围（根字段，仅桌面模式） =====================
+  // 把宠物的横向活动区间夹在 [min, max]：屏幕 CSS 像素，与 position.marginX 同口径
+  //   （= 显示器设置里看到的坐标；150% 缩放时不要把物理像素直接抄进来）。null = 不限制（默认）。
+  // 区间限制的是**身体**左右缘的可达位置（与贴边语义一致）：身体右缘最多到 max、左缘最少到 min——
+  //   抛掷：到边界按左右墙反弹，不再跨屏飞出去；
+  //   漫游：越出区间的那一步直接取消（与「锁定在当前屏幕」的落点规划同语义）；
+  //   拖拽：拖不过去；开机的角落定位与 POST /position 同样夹在区间内。
+  // 与 confineToScreen 正交：那个按「整块屏」锁，这个按「一条横轴区间」锁，同时开取交集。
+  // 只影响桌面模式（浏览器 overlay 只有一块视口，不读此字段）。改动后刷新或重启生效。
+  "roamRangeX": null,
   // ===================== 系统托盘（仅桌面模式） =====================
   // 桌面模式启动后在通知区域（Windows）/ 菜单栏（macOS）常驻一个图标：列出配置里的**全部**宠物，
   // 勾选即可切换显示位置——包括 display 为 web / none（当前不在桌面、没有窗口可右键）的那些。

@@ -1197,6 +1197,45 @@ describe('readAllConfig —— 抛掷锁定合并（缺失取默认 / 非法回�
   });
 });
 
+describe('readAllConfig —— 横轴活动范围合并（缺失取默认 / 非法回退默认）', () => {
+  test('内置默认是 null（不限制）→ 用户层没写时读得到', () => {
+    const merged = readAllConfig(withBase({ roamRangeX: null }));
+    assert.equal(merged.main.roamRangeX, null);
+  });
+
+  test('用户层写了区间 → 原样覆盖', () => {
+    const merged = readAllConfig(withBase({ roamRangeX: null }, { roamRangeX: { min: 0, max: 1920 } }));
+    assert.deepEqual(merged.main.roamRangeX, { min: 0, max: 1920 });
+  });
+
+  test('数字字符串按 Number() 归一（与 physics / petNumber 同口径）', () => {
+    const merged = readAllConfig(withBase({ roamRangeX: null }, { roamRangeX: { min: '0', max: '1920' } }));
+    assert.deepEqual(merged.main.roamRangeX, { min: '0', max: '1920' });
+  });
+
+  test('用户层写了非法值 → 回退内置默认（缺半边 / 顺序反了 / 空区间 / 类型不对）', () => {
+    const bad: unknown[] = [
+      { min: 0 },
+      { max: 1920 },
+      { min: 1920, max: 0 },
+      { min: 0, max: 0 },
+      [0, 1920],
+      '0-1920',
+      42,
+      true,
+    ];
+    for (const value of bad) {
+      const merged = readAllConfig(withBase({ roamRangeX: null }, { roamRangeX: value }));
+      assert.equal(merged.main.roamRangeX, null, `${JSON.stringify(value)} 应回退内置默认`);
+    }
+  });
+
+  test('内置默认没有这个键 → 用户层写不进去（合并只遍历内置默认的键，未知字段不透传）', () => {
+    const merged = readAllConfig(withBase({}, { roamRangeX: { min: 0, max: 1920 } }));
+    assert.equal(merged.main.roamRangeX, undefined);
+  });
+});
+
 describe('readAllConfig —— 宠物固定合并（缺失取默认 / 非法回退默认 / 逐实例独立）', () => {
   /** 取合并后第 n 只宠物 */
   const petAt = (merged: Record<string, Record<string, unknown>>, n = 0): Record<string, unknown> =>
