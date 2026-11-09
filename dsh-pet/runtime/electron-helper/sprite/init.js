@@ -256,6 +256,11 @@ Object.assign(PetSprite.prototype, {
       },
       { signal: ac.signal },
     );
+    // 主进程兜底：极快/跨屏移出时 DOM 的 mouseleave 可能收不到；主进程轮询发现「刚离开
+    // 身体」后发 pet:pointer-left，这里收起提示。setTip 幂等，与 mousemove 判定不冲突。
+    if (window.petBridge && typeof window.petBridge.onPointerLeft === 'function') {
+      window.petBridge.onPointerLeft(() => this.setTip(false));
+    }
 
     this.subscribeCollision();
   },

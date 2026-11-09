@@ -31,6 +31,7 @@ const {
   spriteHitRect,
   pointerZone,
   decideWindowIgnore,
+  leavesBody,
 } = require(helper + 'pointer-target.js');
 
 /** 包内文件源码（守卫用；相对 src/host/ 解析） */
@@ -91,6 +92,15 @@ describe('decideWindowIgnore —— 兜底通道的判定规则（issue #55 报�
     assert.equal(pointerZone(bounds, { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 }), 'body');
     assert.equal(pointerZone(bounds, { x: bounds.x + 2, y: bounds.y + 2 }), 'margin');
     assert.equal(pointerZone(bounds, { x: bounds.x - 1, y: bounds.y + 100 }), 'outside');
+  });
+
+  test('leavesBody：只有身体→非身体才算离开，同一分区不重复通知', () => {
+    assert.equal(leavesBody('body', 'margin'), true);
+    assert.equal(leavesBody('body', 'outside'), true);
+    assert.equal(leavesBody('body', 'body'), false);
+    assert.equal(leavesBody('margin', 'outside'), false);
+    assert.equal(leavesBody('outside', 'body'), false);
+    assert.equal(leavesBody(undefined, 'outside'), false);
   });
 
   test('余量区释放阈值是命名常量（400ms）', () => {

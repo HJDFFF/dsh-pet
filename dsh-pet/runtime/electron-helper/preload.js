@@ -78,4 +78,9 @@ contextBridge.exposeInMainWorld('petBridge', {
   onDisplays(cb) {
     ipcRenderer.on('pet:displays', (e, geo) => cb(geo));
   },
+  // 主进程兜底：极快/跨屏移出时渲染端可能收不到 mouseleave；主进程按光标轮询判定
+  // 「刚离开身体」后通知这里收起悬浮提示。
+  onPointerLeft(cb) {
+    ipcRenderer.on('pet:pointer-left', () => cb());
+  },
 });
